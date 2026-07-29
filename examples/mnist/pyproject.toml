@@ -1,0 +1,26 @@
+[project]
+name = "bitlinear-mnist-example"
+version = "0"
+description = "uv environment for the BitLinear MNIST example"
+requires-python = ">=3.10"
+dependencies = [
+    "bitlinear",
+    "schedulefree",
+    "torchvision",
+
+    # macOS x86_64 (Intel) is a dead platform for modern PyTorch: 2.2.2 is the
+    # last release with wheels for it. torch 2.2.2 was compiled against NumPy
+    # 1.x and raises "_ARRAY_API not found" under NumPy 2. These caps apply
+    # only to that platform; other machines resolve to current versions.
+    "torch<=2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchvision<=0.17.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+# Not an installable package -- just a dependency set for train.py.
+[tool.uv]
+package = false
+
+# Test the checked-out source, not the PyPI release.
+[tool.uv.sources]
+bitlinear = { path = "../..", editable = true }
