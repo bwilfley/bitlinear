@@ -1,0 +1,8 @@
+# Checkpoints written by train.py --save-model (mnist_cnn.pt).
+# Note these are float32 latent weights, not packed ternary -- BitLinear
+# quantizes on the fly in forward(), so a saved model is full size.
+*.pt
+
+# uv's virtualenv. uv already writes .venv/.gitignore, so this is belt-and-braces
+# in case the env is created some other way.
+.venv/

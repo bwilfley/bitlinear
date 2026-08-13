@@ -2,3 +2,5 @@ __pycache__
 dist
 examples/data
 examples/models
+examples/.DS_Store
+examples/mnist/.DS_Store
