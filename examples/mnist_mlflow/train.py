@@ -1,6 +1,8 @@
 from __future__ import print_function
 import argparse
 from bitlinear import bitlinearize
+import mlflow
+import mlflow.pytorch
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -46,6 +48,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
+            step = (epoch - 1) * len(train_loader) + batch_idx
+            mlflow.log_metric("train_loss", loss.item(), step=step)
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -67,10 +71,11 @@ def test(model, optimizer, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
+    accuracy = 100. * correct / len(test_loader.dataset)
 
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        test_loss, correct, len(test_loader.dataset), accuracy))
+    return test_loss, accuracy
 
 
 def main():
@@ -98,6 +103,10 @@ def main():
                         help='For Saving the current Model')
     parser.add_argument('--no-bitlinear', action='store_true', default=False,
                         help='disables BitLinear')
+    parser.add_argument('--mlflow-uri', type=str, default='http://localhost:5001',
+                        help='MLflow tracking server URI (default: http://localhost:5001)')
+    parser.add_argument('--experiment', type=str, default='mnist-bitlinear',
+                        help='MLflow experiment name (default: mnist-bitlinear)')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
@@ -139,12 +148,27 @@ def main():
     model = model.to(device)
     optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args.lr)
 
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(model, optimizer, device, test_loader)
+    mlflow.set_tracking_uri(args.mlflow_uri)
+    mlflow.set_experiment(args.experiment)
 
-    if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+    with mlflow.start_run():
+        mlflow.log_params({
+            "batch_size": args.batch_size,
+            "test_batch_size": args.test_batch_size,
+            "epochs": args.epochs,
+            "lr": args.lr,
+            "seed": args.seed,
+            "bitlinear": not args.no_bitlinear,
+        })
+
+        for epoch in range(1, args.epochs + 1):
+            train(args, model, device, train_loader, optimizer, epoch)
+            test_loss, accuracy = test(model, optimizer, device, test_loader)
+            mlflow.log_metrics({"test_loss": test_loss, "accuracy": accuracy}, step=epoch)
+
+        if args.save_model:
+            mlflow.pytorch.log_model(model, "model")
+            torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':

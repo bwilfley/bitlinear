@@ -1,3 +1,4 @@
 bitlinear
+mlflow
 schedulefree
 torchvision

@@ -6,3 +6,6 @@
 # uv's virtualenv. uv already writes .venv/.gitignore, so this is belt-and-braces
 # in case the env is created some other way.
 .venv/
+
+# MLflow tracking server data (SQLite DB + artifacts from compose.yml).
+mlflow_data/
