@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
+from watcher import ParamWatcher
 
 import schedulefree
 
@@ -37,7 +38,7 @@ class Net(nn.Module):
         return output
 
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, watcher=None):
     model.train()
     optimizer.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -47,8 +48,12 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
+        step = (epoch - 1) * len(train_loader) + batch_idx
+        if watcher is not None:
+            # step() leaves .grad populated and zero_grad() is a whole iteration
+            # away, so this sees the gradients that produced the current weights.
+            watcher.sample(step)
         if batch_idx % args.log_interval == 0:
-            step = (epoch - 1) * len(train_loader) + batch_idx
             mlflow.log_metric("train_loss", loss.item(), step=step)
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -107,7 +112,15 @@ def main():
                         help='MLflow tracking server URI (default: http://localhost:5001)')
     parser.add_argument('--experiment', type=str, default='mnist-bitlinear',
                         help='MLflow experiment name (default: mnist-bitlinear)')
+    parser.add_argument('--watch', action='store_true', default=False,
+                        help='log per-layer weight and gradient statistics')
+    parser.add_argument('--watch-interval', type=int, default=None, metavar='N',
+                        help='batches between watcher samples (default: --log-interval)')
+    parser.add_argument('--watch-eval-weights', action='store_true', default=False,
+                        help='watch the schedule-free averaged weights instead of the training iterate')
     args = parser.parse_args()
+    if args.watch_interval is None:
+        args.watch_interval = args.log_interval
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -151,18 +164,29 @@ def main():
     mlflow.set_tracking_uri(args.mlflow_uri)
     mlflow.set_experiment(args.experiment)
 
+    watcher = ParamWatcher(
+        model,
+        interval=args.watch_interval,
+        optimizer=optimizer,
+        eval_weights=args.watch_eval_weights,
+    ) if args.watch else None
+
     with mlflow.start_run():
-        mlflow.log_params({
+        params = {
             "batch_size": args.batch_size,
             "test_batch_size": args.test_batch_size,
             "epochs": args.epochs,
             "lr": args.lr,
             "seed": args.seed,
             "bitlinear": not args.no_bitlinear,
-        })
+        }
+        if watcher is not None:
+            params["watch_interval"] = args.watch_interval
+            params["watch_weight_point"] = watcher.weight_point
+        mlflow.log_params(params)
 
         for epoch in range(1, args.epochs + 1):
-            train(args, model, device, train_loader, optimizer, epoch)
+            train(args, model, device, train_loader, optimizer, epoch, watcher)
             test_loss, accuracy = test(model, optimizer, device, test_loader)
             mlflow.log_metrics({"test_loss": test_loss, "accuracy": accuracy}, step=epoch)
 
