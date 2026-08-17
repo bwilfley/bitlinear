@@ -55,7 +55,9 @@ def _stats(tensor):
         "absmax": absolute.max().item(),
         "abs_p50": p50,
         "abs_p99": p99,
-        "frac_zero": (flat == 0).float().mean().item(),
+        # Counted as an integer rather than a float32 mean, which loses ~1e-8 over
+        # a million elements.
+        "frac_zero": int((flat == 0).sum()) / n,
     }
 
 
