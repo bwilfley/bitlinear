@@ -1,0 +1,39 @@
+[project]
+name = "bitlinear-mnist-array-metrics"
+version = "0"
+description = "uv environment for the BitLinear MNIST array-metrics example"
+requires-python = ">=3.10"
+dependencies = [
+    "bitlinear",
+    "mlflow",
+    "schedulefree",
+    "torchvision",
+
+    # Training writes the histogram artifact with pyarrow, which mlflow already
+    # pulls in; it is named here because train.py imports it directly.
+    "pyarrow",
+
+    # Viewing only. notebooks/distributions.py needs these; training does not.
+    # Keeping them in one list is the cost of a single environment per example --
+    # ../mnist_mlflow is the variant to copy if you want a training-only
+    # dependency set.
+    "marimo",
+    "altair",
+    "polars",
+
+    # macOS x86_64 (Intel) is a dead platform for modern PyTorch: 2.2.2 is the
+    # last release with wheels for it. torch 2.2.2 was compiled against NumPy
+    # 1.x and raises "_ARRAY_API not found" under NumPy 2. These caps apply
+    # only to that platform; other machines resolve to current versions.
+    "torch<=2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchvision<=0.17.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+# Not an installable package -- just a dependency set for train.py.
+[tool.uv]
+package = false
+
+# Test the checked-out source, not the PyPI release.
+[tool.uv.sources]
+bitlinear = { path = "../..", editable = true }

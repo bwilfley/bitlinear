@@ -1,0 +1,10 @@
+bitlinear
+mlflow
+schedulefree
+torchvision
+pyarrow
+
+# Viewing only -- needed by notebooks/distributions.py, not by train.py.
+marimo
+altair
+polars

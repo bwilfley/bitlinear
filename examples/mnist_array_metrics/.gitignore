@@ -1,0 +1,18 @@
+# Checkpoints written by train.py --save-model (mnist_cnn.pt).
+# Note these are float32 latent weights, not packed ternary -- BitLinear
+# quantizes on the fly in forward(), so a saved model is full size.
+*.pt
+
+# uv's virtualenv. uv already writes .venv/.gitignore, so this is belt-and-braces
+# in case the env is created some other way.
+.venv/
+
+# MLflow tracking server data (SQLite DB + artifacts from compose.yml).
+mlflow_data/
+
+# MLflow's fallback artifact root. Pointing --mlflow-uri at a SQLite file rather
+# than the server leaves artifacts here instead of under mlflow_data/.
+mlruns/
+
+# marimo's per-notebook session cache, written by `marimo edit`/`marimo export`.
+__marimo__/

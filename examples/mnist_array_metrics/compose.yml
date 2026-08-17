@@ -1,0 +1,14 @@
+services:
+  tracking:
+    image: ghcr.io/mlflow/mlflow:latest
+    restart: unless-stopped
+    ports:
+      - "5002:5000"
+    volumes:
+      - ./mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
